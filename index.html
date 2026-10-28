@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#176b52">
+<meta name="description" content="A personal daily health and activity tracker.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>My Health Tracker</title>
+<style>
+:root{--green:#176b52;--green2:#228565;--bg:#f3f7f5;--card:#fff;--text:#19352b;--muted:#64766e;--line:#dce7e1;--soft:#e7f5ee;--red:#b93838}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{background:linear-gradient(135deg,var(--green),#2b9973);color:white;padding:22px 16px 26px}
+.top{max-width:1000px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:clamp(23px,4vw,32px);margin:0}
+header p{margin:7px 0 0;color:#e2f5eb}
+main{max-width:1000px;margin:0 auto;padding:16px}
+nav{display:flex;gap:8px;overflow:auto;padding:4px 0 14px}
+nav button{white-space:nowrap;width:auto;margin:0;background:#e0eee7;color:var(--green);padding:10px 14px}
+nav button.active{background:var(--green);color:white}
+.view{display:none}.view.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card{background:var(--card);padding:17px;border-radius:16px;border:1px solid var(--line);box-shadow:0 3px 12px #173f2d08;margin-bottom:14px;min-width:0}
+h2{font-size:19px;margin:0 0 14px}
+h3{font-size:15px;margin:0 0 8px}
+.muted{color:var(--muted);font-size:13px}
+.stat{background:var(--soft);border-radius:12px;padding:14px;min-width:0}
+.stat .label{font-size:13px;color:var(--muted)}
+.stat .value{font-size:clamp(20px,3vw,27px);font-weight:750;margin:4px 0;overflow-wrap:anywhere}
+.stat .unit{font-size:12px;color:var(--muted)}
+label{display:block;font-size:13px;font-weight:650;margin:12px 0 5px}
+input,select,textarea{font:inherit;font-size:15px;width:100%;padding:11px;border:1px solid #cbdad2;border-radius:9px;background:white;color:var(--text)}
+textarea{resize:vertical;min-height:75px}
+button,.btn{border:0;border-radius:9px;padding:11px 14px;background:var(--green);color:white;font:inherit;font-weight:650;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #8acdb1;outline-offset:2px}
+button.secondary{background:#e5efe9;color:var(--green)}
+button.danger{background:#fff0f0;color:var(--red)}
+button.small{padding:7px 10px;font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.actions button{flex:1}
+form .actions button{min-width:120px}
+.progress{height:8px;background:#e4ece7;border-radius:10px;overflow:hidden;margin:8px 0 4px}
+.progress span{display:block;height:100%;background:var(--green2);width:0%;transition:width .2s}
+.rowline{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.entry{border-top:1px solid var(--line);padding:12px 0}
+.entry:first-child{border-top:0}
+.entry p{margin:4px 0}
+.badge{display:inline-block;background:var(--soft);color:var(--green);padding:3px 8px;border-radius:20px;font-size:12px}
+.notice{padding:12px;background:#fff8e7;border:1px solid #f0dfb0;border-radius:10px;font-size:13px;color:#705720}
+.empty{color:var(--muted);font-size:14px;padding:12px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line)}
+.tablewrap{overflow:auto}
+canvas{width:100%;height:220px;display:block}
+footer{text-align:center;padding:25px;color:var(--muted);font-size:12px}
+@media(max-width:700px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}main{padding:12px}.card{padding:14px}}
+@media(min-width:701px){.wide{grid-column:span 2}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div>
+      <h1>💚 My Health Tracker</h1>
+      <p id="headerDate">Your daily wellness dashboard</p>
+    </div>
+    <button id="todayBtn" class="secondary" type="button">Today</button>
+  </div>
+</header>
+<main>
+  <nav aria-label="App sections">
+    <button class="active" data-view="dashboard">Dashboard</button>
+    <button data-view="log">Daily log</button>
+    <button data-view="history">History</button>
+    <button data-view="reports">Reports</button>
+    <button data-view="settings">Goals & data</button>
+  </nav>
+
+  <section id="dashboard" class="view active">
+    <div class="rowline" style="margin:2px 0 12px">
+      <div><h2 style="margin:0">Today's overview</h2><div class="muted">Your personal wellness snapshot</div></div>
+      <input id="selectedDate" type="date" aria-label="Select date" style="max-width:155px">
+    </div>
+    <div class="grid">
+      <div class="stat"><div class="label">👟 Steps</div><div class="value" id="dSteps">0</div><div class="unit">steps</div><div class="progress"><span id="pSteps"></span></div><div class="muted" id="gSteps">Goal: 8,000</div></div>
+      <div class="stat"><div class="label">💧 Water</div><div class="value" id="dWater">0</div><div class="unit">ml</div><div class="progress"><span id="pWater"></span></div><div class="muted" id="gWater">Goal: 2,000 ml</div></div>
+      <div class="stat"><div class="label">😴 Sleep</div><div class="value" id="dSleep">0</div><div class="unit">hours</div><div class="progress"><span id="pSleep"></span></div><div class="muted" id="gSleep">Goal: 8 hours</div></div>
+      <div class="stat"><div class="label">⚖️ Weight</div><div class="value" id="dWeight">—</div><div class="unit">kg</div><div class="muted">Latest entry for selected day</div></div>
+    </div>
+    <div class="two" style="margin-top:14px">
+      <div class="card"><h2>💧 Water quick add</h2><p class="muted">Add a glass to today's total.</p><div class="actions"><button type="button" data-water="150">+150 ml</button><button type="button" data-water="250">+250 ml</button><button type="button" data-water="500">+500 ml</button></div></div>
+      <div class="card"><h2>⚡ Quick actions</h2><div class="actions"><button type="button" id="logNow">Log activity</button><button type="button" class="secondary" id="reportNow">Weekly report</button></div><p class="muted">Your data stays in this browser unless you export it.</p></div>
+    </div>
+    <div class="card"><h2>Today's notes</h2><div id="todayNotes" class="empty">No food or activity notes yet.</div></div>
+  </section>
+
+  <section id="log" class="view">
+    <div class="card">
+      <div class="rowline"><h2>📝 Daily health log</h2><span class="badge" id="logDateBadge"></span></div>
+      <form id="healthForm">
+        <label for="logDate">Date</label><input id="logDate" type="date" required>
+        <div class="two">
+          <div><label for="steps">Steps walked</label><input id="steps" type="number" min="0" step="1" placeholder="e.g. 6500"></div>
+          <div><label for="water">Water (ml)</label><input id="water" type="number" min="0" step="50" placeholder="e.g. 2000"></div>
+          <div><label for="sleep">Sleep (hours)</label><input id="sleep" type="number" min="0" max="24" step="0.25" placeholder="e.g. 8"></div>
+          <div><label for="weight">Weight (kg)</label><input id="weight" type="number" min="0" max="500" step="0.1" placeholder="e.g. 72"></div>
+          <div><label for="bedtime">Bedtime</label><input id="bedtime" type="time"></div>
+          <div><label for="wakeTime">Wake-up time</label><input id="wakeTime" type="time"></div>
+          <div><label for="mood">Mood</label><select id="mood"><option value="">Choose (optional)</option><option>Great</option><option>Good</option><option>Okay</option><option>Low</option><option>Stressed</option></select></div>
+          <div><label for="exerciseMinutes">Exercise (minutes)</label><input id="exerciseMinutes" type="number" min="0" step="1" placeholder="e.g. 30"></div>
+        </div>
+        <label for="food">Food diary</label><textarea id="food" placeholder="Breakfast, lunch, dinner, snacks..."></textarea>
+        <label for="activity">Exercise / activities</label><textarea id="activity" placeholder="Walking, running, cycling, sports..."></textarea>
+        <label for="notes">Other notes</label><textarea id="notes" placeholder="Energy, habits, symptoms to discuss with a professional..."></textarea>
+        <div class="actions"><button type="submit">Save daily log</button><button type="button" class="secondary" id="resetForm">Reset form</button></div>
+        <p id="saveMessage" class="muted" role="status"></p>
+      </form>
+    </div>
+    <div class="card">
+      <h2>🚶 Experimental motion counter</h2>
+      <p class="muted">This browser-based sensor estimate is not a reliable pedometer and may not work on your phone. It only runs while this page is open.</p>
+      <p id="sensorStatus" role="status">Not tracking.</p>
+      <div class="actions"><button type="button" id="startSensor">Start sensor</button><button type="button" class="secondary" id="stopSensor">Stop sensor</button></div>
+      <div class="notice" style="margin-top:12px">Use HTTPS and grant motion permission if asked. For accurate background steps, use a native Android app with a supported health platform.</div>
+    </div>
+  </section>
+
+  <section id="history" class="view">
+    <div class="card"><h2>📚 Daily history</h2><p class="muted">Select a date to edit its saved entry.</p><div id="historyList"></div></div>
+  </section>
+
+  <section id="reports" class="view">
+    <div class="card"><h2>📊 Last 7 days</h2><p class="muted">Averages are calculated from days with saved records. Missing days are not treated as zero.</p><div id="weeklyStats" class="grid"></div></div>
+    <div class="card"><h2>👟 Steps by day</h2><canvas id="stepsChart" width="800" height="260" aria-label="Bar chart of daily steps"></canvas><div id="chartFallback" class="muted"></div></div>
+    <div class="card"><h2>📋 Weekly details</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Steps</th><th>Water</th><th>Sleep</th><th>Weight</th></tr></thead><tbody id="reportTable"></tbody></table></div></div>
+  </section>
+
+  <section id="settings" class="view">
+    <div class="card">
+      <h2>🎯 Daily goals</h2>
+      <form id="goalsForm">
+        <div class="two">
+          <div><label for="goalSteps">Steps goal</label><input id="goalSteps" type="number" min="1" max="100000" required></div>
+          <div><label for="goalWater">Water goal (ml)</label><input id="goalWater" type="number" min="1" max="10000" required></div>
+          <div><label for="goalSleep">Sleep goal (hours)</label><input id="goalSleep" type="number" min="1" max="24" step="0.5" required></div>
+        </div>
+        <button type="submit" style="margin-top:14px">Save goals</button>
+      </form>
+      <p class="muted">Goals are editable targets, not medical advice. Hydration needs vary with activity, weather and health.</p>
+    </div>
+    <div class="card">
+      <h2>💾 Your data</h2>
+      <p class="muted">Export your records as a JSON backup or CSV spreadsheet. Import a JSON backup to restore data in this browser.</p>
+      <div class="actions"><button type="button" id="exportJson">Export JSON backup</button><button type="button" id="exportCsv" class="secondary">Export CSV</button></div>
+      <label for="importFile">Restore JSON backup</label><input type="file" id="importFile" accept=".json,application/json">
+      <div class="actions"><button type="button" class="danger" id="deleteAll">Delete all app data</button></div>
+      <p id="dataMessage" class="muted" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>⏰ Gentle reminders</h2>
+      <p class="muted">Enable reminders while the app is open. Browser notifications and background scheduling depend on your browser and Android settings.</p>
+      <label for="reminderTime">Reminder time</label>
+      <input id="reminderTime" type="time" value="21:00">
+      <div class="actions"><button type="button" id="enableReminders">Enable reminder</button><button type="button" id="disableReminders" class="secondary">Disable</button></div>
+      <p id="reminderStatus" class="muted" role="status">Reminders are off.</p>
+    </div>
+    <div class="card"><h2>🔒 Privacy & limitations</h2><p class="muted">This version stores data locally in this browser. It has no account, cloud sync, automatic meal recognition, medical diagnosis, or reliable background sensor tracking. Clearing browser data may erase your records. Export a backup regularly.</p></div>
+  </section>
+</main>
+<footer>My Health Tracker · Personal wellness record · Not a medical device</footer>
+
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const DB_KEY = "myHealthTracker.entries.v1";
+  const GOAL_KEY = "myHealthTracker.goals.v1";
+  const FIELDS = ["steps","water","sleep","weight","bedtime","wakeTime","mood","exerciseMinutes","food","activity","notes"];
+  const defaults = {steps:8000, water:2000, sleep:8};
+  let entries = loadEntries();
+  let goals = loadGoals();
+  let tracking = false, lastPeak = 0, previousMagnitude = 0;
+  let sensorAdded = 0;
+
+  function localDate(date = new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  }
+  function shiftDate(days) { const d = new Date(); d.setDate(d.getDate()+days); return localDate(d); }
+  function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function num(v) { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : 0; }
+  function loadEntries() {
+    try { const x = JSON.parse(localStorage.getItem(DB_KEY) || "{}"); return x && typeof x === "object" && !Array.isArray(x) ? x : {}; }
+    catch { return {}; }
+  }
+  function loadGoals() {
+    try { return {...defaults, ...JSON.parse(localStorage.getItem(GOAL_KEY) || "{}")}; }
+    catch { return {...defaults}; }
+  }
+  function persistEntries() { localStorage.setItem(DB_KEY, JSON.stringify(entries)); }
+  function persistGoals() { localStorage.setItem(GOAL_KEY, JSON.stringify(goals)); }
+  function currentDate() { return $("selectedDate").value || localDate(); }
+  function getEntry(date) { return entries[date] || {}; }
+  function putEntry(date, data) { entries[date] = data; persistEntries(); }
+  function fmt(n) { return Number(n || 0).toLocaleString("en-IN"); }
+  function safeDateLabel(date) {
+    const d = new Date(date + "T12:00:00");
+    return Number.isNaN(d.getTime()) ? date : d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+  }
+
+  function showView(name) {
+    document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === name));
+    document.querySelectorAll("nav button[data-view]").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+    if (name === "history") renderHistory();
+    if (name === "reports") renderReports();
+    if (name === "dashboard") renderDashboard();
+  }
+  document.querySelectorAll("nav button[data-view]").forEach(b => b.addEventListener("click", () => showView(b.dataset.view)));
+  $("todayBtn").addEventListener("click", () => { $("selectedDate").value = localDate(); loadForm(currentDate()); renderDashboard(); });
+  $("selectedDate").value = localDate();
+  $("logDate").value = localDate();
+  $("headerDate").textContent = new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  $("selectedDate").addEventListener("change", () => renderDashboard());
+  $("selectedDate").addEventListener("change", () => { $("logDate").value = currentDate(); loadForm(currentDate()); });
+
+  function renderDashboard() {
+    const date = currentDate(), e = getEntry(date);
+    const s = num(e.steps), w = num(e.water), sl = num(e.sleep);
+    $("dSteps").textContent = fmt(s); $("dWater").textContent = fmt(w);
+    $("dSleep").textContent = sl; $("dWeight").textContent = e.weight ? e.weight : "—";
+    [["Steps",s,goals.steps],["Water",w,goals.water],["Sleep",sl,goals.sleep]].forEach(([name,val,goal]) => {
+      $("p"+name).style.width = Math.min(100, goal > 0 ? val/goal*100 : 0) + "%";
+      $("g"+name).textContent = `Goal: ${fmt(goal)}${name==="Water"?" ml":name==="Sleep"?" hours":""}`;
+    });
+    const notes = [];
+    if (e.food) notes.push(`<p><strong>🍽 Food:</strong> ${esc(e.food).replace(/\n/g,"<br>")}</p>`);
+    if (e.activity) notes.push(`<p><strong>🏃 Activity:</strong> ${esc(e.activity).replace(/\n/g,"<br>")}</p>`);
+    if (e.notes) notes.push(`<p><strong>🗒 Notes:</strong> ${esc(e.notes).replace(/\n/g,"<br>")}</p>`);
+    $("todayNotes").innerHTML = notes.length ? notes.join("") : '<div class="empty">No food or activity notes yet.</div>';
+    $("logDateBadge").textContent = safeDateLabel($("logDate").value || date);
+  }
+
+  function loadForm(date) {
+    $("logDate").value = date;
+    const e = getEntry(date);
+    FIELDS.forEach(f => { $(f).value = e[f] ?? ""; });
+    $("saveMessage").textContent = "";
+    $("logDateBadge").textContent = safeDateLabel(date);
+  }
+  $("logDate").addEventListener("change", () => loadForm($("logDate").value));
+  $("healthForm").addEventListener("submit", ev => {
+    ev.preventDefault();
+    const date = $("logDate").value;
+    if (!date) { $("saveMessage").textContent = "Please choose a date."; return; }
+    const data = {};
+    FIELDS.forEach(f => data[f] = $(f).value.trim());
+    ["steps","water","sleep","weight","exerciseMinutes"].forEach(f => {
+      if (data[f] !== "" && (!Number.isFinite(Number(data[f])) || Number(data[f]) < 0)) {
+        data[f] = "";
+      }
+    });
+    putEntry(date, data);
+    $("selectedDate").value = date;
+    $("saveMessage").textContent = "Saved on this device ✓";
+    renderDashboard(); renderHistoryIfVisible();
+  });
+  $("resetForm").addEventListener("click", () => loadForm($("logDate").value || localDate()));
+  $("logNow").addEventListener("click", () => { loadForm(currentDate()); showView("log"); });
+  $("reportNow").addEventListener("click", () => { showView("reports"); renderReports(); });
+
+  document.querySelectorAll("[data-water]").forEach(b => b.addEventListener("click", () => {
+    const date = currentDate(), e = {...getEntry(date)};
+    e.water = String(num(e.water) + Number(b.dataset.water));
+    putEntry(date,e); loadForm(date); renderDashboard();
+  }));
+
+  function recentDates() { return Array.from({length:7},(_,i)=>shiftDate(i-6)); }
+  function renderHistoryIfVisible() { if ($("history").classList.contains("active")) renderHistory(); }
+  function renderHistory() {
+    const dates = Object.keys(entries).filter(d => entries[d] && typeof entries[d] === "object").sort().reverse();
+    $("historyList").innerHTML = dates.length ? dates.map(date => {
+      const e=entries[date]||{};
+      const summary = `${fmt(e.steps)} steps · ${fmt(e.water)} ml water · ${e.sleep || 0} h sleep`;
+      return `<div class="entry"><div class="rowline"><strong>${esc(safeDateLabel(date))}</strong><button class="small secondary" data-edit="${esc(date)}">Edit</button></div><p class="muted">${summary}</p>${e.food?`<p>🍽 ${esc(e.food)}</p>`:""}${e.activity?`<p>🏃 ${esc(e.activity)}</p>`:""}</div>`;
+    }).join("") : '<div class="empty">No saved entries yet. Add your first daily log.</div>';
+    $("historyList").querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => {
+      $("selectedDate").value = b.dataset.edit; loadForm(b.dataset.edit); renderDashboard(); showView("log");
+    }));
+  }
+
+  function renderReports() {
+    const dates = recentDates(), rows = dates.map(date => ({date,e:getEntry(date)})).filter(r => Object.keys(r.e).length);
+    const sum = key => rows.reduce((a,r)=>a+num(r.e[key]),0);
+    const avg = key => rows.length ? (sum(key)/rows.length).toFixed(1) : "—";
+    const latestWeight = rows.slice().reverse().find(r=>num(r.e.weight)>0);
+    const stats = [
+      ["Days logged",`${rows.length}/7`,"days"],
+      ["Total steps",fmt(sum("steps")),"steps"],
+      ["Average steps",avg("steps"),"per logged day"],
+      ["Average water",avg("water"),"ml per logged day"],
+      ["Average sleep",avg("sleep"),"hours per logged day"],
+      ["Latest weight",latestWeight?latestWeight.e.weight:"—",latestWeight?"kg · "+safeDateLabel(latestWeight.date):"not recorded"]
+    ];
+    $("weeklyStats").innerHTML = stats.map(([a,b,c])=>`<div class="stat"><div class="label">${esc(a)}</div><div class="value">${esc(b)}</div><div class="unit">${esc(c)}</div></div>`).join("");
+    $("reportTable").innerHTML = dates.map(date=>{
+      const e=getEntry(date);
+      return `<tr><td>${esc(safeDateLabel(date))}</td><td>${e.steps!==undefined?fmt(e.steps):"—"}</td><td>${e.water!==undefined?fmt(e.water):"—"}</td><td>${e.sleep!==undefined?esc(e.sleep):"—"}</td><td>${e.weight?esc(e.weight):"—"}</td></tr>`;
+    }).join("");
+    drawChart(dates);
+    $("chartFallback").textContent = rows.length ? "Bars show saved step totals; days without entries display as zero in this chart." : "Save daily logs to populate the chart.";
+  }
+
+  function drawChart(dates) {
+    const canvas=$("stepsChart"), ctx=canvas.getContext("2d");
+    const width=canvas.width, height=canvas.height;
+    ctx.clearRect(0,0,width,height);
+    const values=dates.map(d=>num(getEntry(d).steps)), max=Math.max(8000,...values);
+    const left=45, right=15, top=18, bottom=42, chartH=height-top-bottom, chartW=width-left-right;
+    ctx.font="14px system-ui"; ctx.fillStyle="#64766e"; ctx.strokeStyle="#dce7e1"; ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){const y=top+chartH*i/4;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(width-right,y);ctx.stroke();ctx.fillText(Math.round(max*(1-i/4)/1000)+"k",5,y+5);}
+    const slot=chartW/7, barW=slot*.55;
+    values.forEach((v,i)=>{
+      const bh=v/max*chartH, x=left+i*slot+(slot-barW)/2, y=top+chartH-bh;
+      ctx.fillStyle="#228565";ctx.fillRect(x,y,barW,bh);
+      ctx.fillStyle="#64766e";ctx.textAlign="center";
+      const d=new Date(dates[i]+"T12:00:00");
+      ctx.fillText(d.toLocaleDateString("en-IN",{weekday:"short"}),x+barW/2,height-15);
+    });
+    ctx.textAlign="start";
+  }
+
+  $("goalsForm").addEventListener("submit",ev=>{
+    ev.preventDefault();
+    goals={steps:Number($("goalSteps").value),water:Number($("goalWater").value),sleep:Number($("goalSleep").value)};
+    persistGoals(); renderDashboard(); $("dataMessage").textContent="Goals saved.";
+  });
+  function initGoals() { $("goalSteps").value=goals.steps; $("goalWater").value=goals.water; $("goalSleep").value=goals.sleep; }
+
+  function download(filename, content, type) {
+    const blob=new Blob([content],{type}), url=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }
+  $("exportJson").addEventListener("click",()=>{
+    download("my-health-tracker-backup.json",JSON.stringify({version:1,exportedAt:new Date().toISOString(),entries,goals},null,2),"application/json");
+    $("dataMessage").textContent="JSON backup export started.";
+  });
+  $("exportCsv").addEventListener("click",()=>{
+    const headers=["date",...FIELDS], quote=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+    const lines=[headers.map(quote).join(",")];
+    Object.keys(entries).sort().forEach(date=>lines.push([date,...FIELDS.map(f=>entries[date]?.[f]??"")].map(quote).join(",")));
+    download("my-health-tracker.csv","\uFEFF"+lines.join("\r\n"),"text/csv;charset=utf-8");
+    $("dataMessage").textContent="CSV export started.";
+  });
+  $("importFile").addEventListener("change",async ev=>{
+    const file=ev.target.files?.[0]; if(!file)return;
+    try{
+      const obj=JSON.parse(await file.text());
+      const incoming=obj.entries;
+      if(!incoming || typeof incoming!=="object" || Array.isArray(incoming)) throw new Error("Invalid backup");
+      const clean={};
+      for(const [date,entry] of Object.entries(incoming)){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!entry||typeof entry!=="object"||Array.isArray(entry)) continue;
+        clean[date]={};
+        FIELDS.forEach(f=>{if(entry[f]!==undefined)clean[date][f]=String(entry[f]).slice(0,10000);});
+      }
+      if(!confirm(`Import ${Object.keys(clean).length} daily records? This will replace current entries.`)) return;
+      entries=clean; persistEntries();
+      if(obj.goals&&typeof obj.goals==="object"){
+        goals={steps:num(obj.goals.steps)||defaults.steps,water:num(obj.goals.water)||defaults.water,sleep:num(obj.goals.sleep)||defaults.sleep};
+        persistGoals();initGoals();
+      }
+      loadForm(currentDate());renderDashboard();renderHistoryIfVisible();renderReports();
+      $("dataMessage").textContent="Backup imported successfully.";
+    }catch(err){$("dataMessage").textContent="Could not import this file. Choose a valid app JSON backup.";}
+    finally{ev.target.value="";}
+  });
+  $("deleteAll").addEventListener("click",()=>{
+    if(!confirm("Permanently delete all health entries and goals stored by this app in this browser? Export a backup first if needed."))return;
+    entries={};goals={...defaults};persistEntries();persistGoals();initGoals();
+    loadForm(currentDate());renderDashboard();renderHistory();renderReports();
+    $("dataMessage").textContent="All app data deleted.";
+  });
+
+  function handleMotion(event) {
+    if(!tracking)return;
+    const a=event.accelerationIncludingGravity;
+    if(!a||a.x==null||a.y==null||a.z==null)return;
+    const mag=Math.sqrt(a.x*a.x+a.y*a.y+a.z*a.z), change=Math.abs(mag-previousMagnitude), now=Date.now();
+    if(change>2.2 && now-lastPeak>350){
+      lastPeak=now;sensorAdded++;
+      const date=$("logDate").value||localDate();
+      const e={...getEntry(date)};e.steps=String(num(e.steps)+1);putEntry(date,e);
+      $("steps").value=e.steps;
+      if(date===currentDate())renderDashboard();
+      $("sensorStatus").textContent=`Running: ${sensorAdded} estimated steps added this session. Save your log to keep the total.`;
+    }
+    previousMagnitude=mag;
+  }
+  $("startSensor").addEventListener("click",async()=>{
+    if(!("DeviceMotionEvent" in window)){
+      $("sensorStatus").textContent="Motion sensors are not supported by this browser.";return;
+    }
+    if(!window.isSecureContext){
+      $("sensorStatus").textContent="This page needs HTTPS (or localhost) for sensor access.";return;
+    }
+    try{
+      if(typeof DeviceMotionEvent.requestPermission==="function"){
+        const p=await DeviceMotionEvent.requestPermission();
+        if(p!=="granted"){$("sensorStatus").textContent="Motion permission was denied.";return;}
+      }
+      if(!tracking){tracking=true;window.addEventListener("devicemotion",handleMotion);$("sensorStatus").textContent="Tracking motion; step estimates may be inaccurate.";}
+    }catch{$("sensorStatus").textContent="Sensor permission failed. Check browser settings.";}
+  });
+  $("stopSensor").addEventListener("click",()=>{
+    tracking=false;window.removeEventListener("devicemotion",handleMotion);
+    $("sensorStatus").textContent="Tracking stopped. Save the daily log to retain the recorded total.";
+  });
+
+
+  // PWA service worker: enables offline caching when hosted on HTTPS or localhost.
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+
+  const REMINDER_KEY = "myHealthTracker.reminder.v1";
+  let reminderTimer = null;
+  function reminderMessage() {
+    $("reminderStatus").textContent = "Reminder enabled while this app is open. Keep the app open for the reminder check.";
+  }
+  async function enableReminder() {
+    if (!("Notification" in window)) {
+      $("reminderStatus").textContent = "Notifications are not supported in this browser.";
+      return;
+    }
+    if (!window.isSecureContext) {
+      $("reminderStatus").textContent = "Notifications need a secure HTTPS website.";
+      return;
+    }
+    let permission = Notification.permission;
+    if (permission === "default") permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      $("reminderStatus").textContent = "Notification permission was not granted. You can change it in browser settings.";
+      return;
+    }
+    const time = $("reminderTime").value || "21:00";
+    localStorage.setItem(REMINDER_KEY, JSON.stringify({time, enabled:true, lastDate:""}));
+    startReminderChecks();
+    reminderMessage();
+  }
+  function startReminderChecks() {
+    if (reminderTimer) clearInterval(reminderTimer);
+    reminderTimer = setInterval(() => {
+      try {
+        const settings = JSON.parse(localStorage.getItem(REMINDER_KEY) || "{}");
+        if (!settings.enabled || Notification.permission !== "granted") return;
+        const now = new Date();
+        const hm = String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0");
+        const today = localDate();
+        if (hm === settings.time && settings.lastDate !== today) {
+          new Notification("My Health Tracker", {body:"Time to update your health log, drink water, and prepare for sleep."});
+          settings.lastDate = today;
+          localStorage.setItem(REMINDER_KEY, JSON.stringify(settings));
+        }
+      } catch {}
+    }, 30000);
+  }
+  $("enableReminders").addEventListener("click", enableReminder);
+  $("disableReminders").addEventListener("click", () => {
+    if (reminderTimer) clearInterval(reminderTimer);
+    reminderTimer = null;
+    localStorage.removeItem(REMINDER_KEY);
+    $("reminderStatus").textContent = "Reminders are off.";
+  });
+  try {
+    const reminderSettings = JSON.parse(localStorage.getItem(REMINDER_KEY) || "{}");
+    if (reminderSettings.enabled) {
+      $("reminderTime").value = reminderSettings.time || "21:00";
+      if ("Notification" in window && Notification.permission === "granted") startReminderChecks();
+      reminderMessage();
+    }
+  } catch {}
+
+  initGoals();loadForm(localDate());renderDashboard();
+})();
+</script>
+</body>
+</html>
